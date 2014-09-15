@@ -10,8 +10,8 @@
  * SPDX-License-Identifier:	GPL-2.0+
  */
 
-#ifndef __RIOTBOARD_CONFIG_H
-#define __RIOTBOARD_CONFIG_H
+#ifndef __MX6EMBEST_CONFIG_H
+#define __MX6EMBEST_CONFIG_H
 
 #include <asm/arch/imx-regs.h>
 #include <asm/imx-common/gpio.h>
@@ -126,7 +126,7 @@
 
 #ifdef CONFIG_MFG
 
-	#define CONFIG_BOOTDELAY            1
+	#define CONFIG_BOOTDELAY            0
 
 	#if 0
 		#define CONFIG_BOOTCOMMAND \
