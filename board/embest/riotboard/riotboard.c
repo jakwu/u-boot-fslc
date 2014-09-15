@@ -65,10 +65,6 @@ DECLARE_GLOBAL_DATA_PTR;
 #define SPI_PAD_CTRL (PAD_CTL_HYS | PAD_CTL_SPEED_MED | \
 		      PAD_CTL_DSE_40ohm | PAD_CTL_SRE_FAST)
 
-static int board_type = -1;
-#define BOARD_IS_MARSBOARD	0
-#define BOARD_IS_RIOTBOARD	1
-
 int dram_init(void)
 {
 	gd->ram_size = get_ram_size((void *)PHYS_SDRAM, PHYS_SDRAM_SIZE);
@@ -138,8 +134,9 @@ int board_phy_config(struct phy_device *phydev)
 {
 	mx6_rgmii_rework(phydev);
 
-	if (phydev->drv->config)
+	if (phydev->drv->config) {
 		phydev->drv->config(phydev);
+	}
 
 	return 0;
 }
@@ -162,9 +159,6 @@ iomux_v3_cfg_t const usdhc3_pads[] = {
 	MX6_PAD_SD3_DAT1__SD3_DATA1 | MUX_PAD_CTRL(USDHC_PAD_CTRL),
 	MX6_PAD_SD3_DAT2__SD3_DATA2 | MUX_PAD_CTRL(USDHC_PAD_CTRL),
 	MX6_PAD_SD3_DAT3__SD3_DATA3 | MUX_PAD_CTRL(USDHC_PAD_CTRL),
-};
-
-iomux_v3_cfg_t const riotboard_usdhc3_pads[] = {
 	MX6_PAD_SD3_DAT4__GPIO7_IO01 | MUX_PAD_CTRL(NO_PAD_CTRL), /* WP */
 	MX6_PAD_SD3_DAT5__GPIO7_IO00 | MUX_PAD_CTRL(NO_PAD_CTRL), /* CD */
 };
@@ -200,11 +194,7 @@ int board_mmc_getcd(struct mmc *mmc)
 		ret = !gpio_get_value(USDHC2_CD_GPIO);
 		break;
 	case USDHC3_BASE_ADDR:
-		if (board_type == BOARD_IS_RIOTBOARD)
-			ret = !gpio_get_value(USDHC3_CD_GPIO);
-		else if (board_type == BOARD_IS_MARSBOARD)
-			ret = 1; /* eMMC/uSDHC3 is always present */
-		break;
+		ret = !gpio_get_value(USDHC3_CD_GPIO);
 	case USDHC4_BASE_ADDR:
 		ret = 1; /* eMMC/uSDHC4 is always present */
 		break;
@@ -221,41 +211,29 @@ int board_mmc_init(bd_t *bis)
 	/*
 	 * According to the board_mmc_init() the following map is done:
 	 * (U-boot device node)    (Physical Port)
-	 * ** RiOTboard :
 	 * mmc0                    SDCard slot (bottom)
 	 * mmc1                    uSDCard slot (top)
 	 * mmc2                    eMMC
-	 * ** MarSBoard :
-	 * mmc0                    uSDCard slot (bottom)
-	 * mmc1                    eMMC
 	 */
 	for (i = 0; i < CONFIG_SYS_FSL_USDHC_NUM; i++) {
 		switch (i) {
 		case 0:
-			imx_iomux_v3_setup_multiple_pads(
-				usdhc2_pads, ARRAY_SIZE(usdhc2_pads));
+			imx_iomux_v3_setup_multiple_pads(usdhc2_pads, ARRAY_SIZE(usdhc2_pads));
 			gpio_direction_input(USDHC2_CD_GPIO);
 			usdhc_cfg[0].sdhc_clk = mxc_get_clock(MXC_ESDHC2_CLK);
 			usdhc_cfg[0].max_bus_width = 4;
 			break;
 		case 1:
-			imx_iomux_v3_setup_multiple_pads(
-				usdhc3_pads, ARRAY_SIZE(usdhc3_pads));
-			if (board_type == BOARD_IS_RIOTBOARD) {
-				imx_iomux_v3_setup_multiple_pads(
-					riotboard_usdhc3_pads,
-					ARRAY_SIZE(riotboard_usdhc3_pads));
-				gpio_direction_input(USDHC3_CD_GPIO);
-				gpio_direction_output(IMX_GPIO_NR(7, 8) , 0);
-				udelay(250);
-				gpio_set_value(IMX_GPIO_NR(7, 8), 1);
-			}
+			imx_iomux_v3_setup_multiple_pads(usdhc3_pads, ARRAY_SIZE(usdhc3_pads));
+			gpio_direction_input(USDHC3_CD_GPIO);
+			gpio_direction_output(IMX_GPIO_NR(7, 8) , 0);
+			udelay(250);
+			gpio_set_value(IMX_GPIO_NR(7, 8), 1);
 			usdhc_cfg[1].sdhc_clk = mxc_get_clock(MXC_ESDHC3_CLK);
 			usdhc_cfg[1].max_bus_width = 4;
 			break;
 		case 2:
-			imx_iomux_v3_setup_multiple_pads(
-				usdhc4_pads, ARRAY_SIZE(usdhc4_pads));
+			imx_iomux_v3_setup_multiple_pads(usdhc4_pads, ARRAY_SIZE(usdhc4_pads));
 			usdhc_cfg[2].sdhc_clk = mxc_get_clock(MXC_ESDHC4_CLK);
 			usdhc_cfg[2].max_bus_width = 4;
 			gpio_direction_output(IMX_GPIO_NR(6, 8) , 0);
@@ -341,7 +319,7 @@ struct i2c_pads_info i2c_pad_info3 = {
 	}
 };
 
-iomux_v3_cfg_t const tft_pads_riot[] = {
+iomux_v3_cfg_t const tft_pads[] = {
 	/* LCD_PWR_EN */
 	MX6_PAD_ENET_TXD1__GPIO1_IO29 | MUX_PAD_CTRL(NO_PAD_CTRL),
 	/* TOUCH_INT */
@@ -352,30 +330,14 @@ iomux_v3_cfg_t const tft_pads_riot[] = {
 	MX6_PAD_SD1_CMD__GPIO1_IO18 | MUX_PAD_CTRL(NO_PAD_CTRL),
 };
 
-iomux_v3_cfg_t const tft_pads_mars[] = {
-	/* LCD_PWR_EN */
-	MX6_PAD_ENET_TXD1__GPIO1_IO29 | MUX_PAD_CTRL(NO_PAD_CTRL),
-	/* TOUCH_INT */
-	MX6_PAD_NANDF_CS1__GPIO6_IO14 | MUX_PAD_CTRL(NO_PAD_CTRL),
-	/* LED_PWR_EN */
-	MX6_PAD_NANDF_CS2__GPIO6_IO15 | MUX_PAD_CTRL(NO_PAD_CTRL),
-	/* BL LEVEL (PWM4) */
-	MX6_PAD_SD4_DAT2__GPIO2_IO10 | MUX_PAD_CTRL(NO_PAD_CTRL),
-};
-
 #if defined(CONFIG_VIDEO_IPUV3)
 
 static void enable_lvds(struct display_info_t const *dev)
 {
-	struct iomuxc *iomux = (struct iomuxc *)
-				IOMUXC_BASE_ADDR;
-	setbits_le32(&iomux->gpr[2],
-		     IOMUXC_GPR2_DATA_WIDTH_CH0_24BIT);
+	struct iomuxc *iomux = (struct iomuxc *)IOMUXC_BASE_ADDR;
+	setbits_le32(&iomux->gpr[2], IOMUXC_GPR2_DATA_WIDTH_CH0_24BIT);
 	/* set backlight level to ON */
-	if (board_type == BOARD_IS_RIOTBOARD)
-		gpio_direction_output(IMX_GPIO_NR(1, 18) , 1);
-	else if (board_type == BOARD_IS_MARSBOARD)
-		gpio_direction_output(IMX_GPIO_NR(2, 10) , 1);
+	gpio_direction_output(IMX_GPIO_NR(1, 18) , 1);
 }
 
 static void disable_lvds(struct display_info_t const *dev)
@@ -383,13 +345,8 @@ static void disable_lvds(struct display_info_t const *dev)
 	struct iomuxc *iomux = (struct iomuxc *)IOMUXC_BASE_ADDR;
 
 	/* set backlight level to OFF */
-	if (board_type == BOARD_IS_RIOTBOARD)
-		gpio_direction_output(IMX_GPIO_NR(1, 18) , 0);
-	else if (board_type == BOARD_IS_MARSBOARD)
-		gpio_direction_output(IMX_GPIO_NR(2, 10) , 0);
-
-	clrbits_le32(&iomux->gpr[2],
-		     IOMUXC_GPR2_LVDS_CH0_MODE_MASK);
+	gpio_direction_output(IMX_GPIO_NR(1, 18) , 0);
+	clrbits_le32(&iomux->gpr[2], IOMUXC_GPR2_LVDS_CH0_MODE_MASK);
 }
 
 static void do_enable_hdmi(struct display_info_t const *dev)
@@ -508,25 +465,9 @@ int board_eth_init(bd_t *bis)
 
 int board_early_init_f(void)
 {
-	u32 cputype = cpu_type(get_cpu_rev());
-
-	switch (cputype) {
-	case MXC_CPU_MX6SOLO:
-		board_type = BOARD_IS_RIOTBOARD;
-		break;
-	case MXC_CPU_MX6D:
-		board_type = BOARD_IS_MARSBOARD;
-		break;
-	}
-
 	setup_iomux_uart();
 
-	if (board_type == BOARD_IS_RIOTBOARD)
-		imx_iomux_v3_setup_multiple_pads(
-			tft_pads_riot, ARRAY_SIZE(tft_pads_riot));
-	else if (board_type == BOARD_IS_MARSBOARD)
-		imx_iomux_v3_setup_multiple_pads(
-			tft_pads_mars, ARRAY_SIZE(tft_pads_mars));
+	imx_iomux_v3_setup_multiple_pads(tft_pads, ARRAY_SIZE(tft_pads));
 #if defined(CONFIG_VIDEO_IPUV3)
 	/* power ON LCD */
 	gpio_direction_output(IMX_GPIO_NR(1, 29) , 1);
@@ -535,10 +476,8 @@ int board_early_init_f(void)
 	/* power ON backlight */
 	gpio_direction_output(IMX_GPIO_NR(6, 15) , 1);
 	/* set backlight level to off */
-	if (board_type == BOARD_IS_RIOTBOARD)
-		gpio_direction_output(IMX_GPIO_NR(1, 18) , 0);
-	else if (board_type == BOARD_IS_MARSBOARD)
-		gpio_direction_output(IMX_GPIO_NR(2, 10) , 0);
+	gpio_direction_output(IMX_GPIO_NR(1, 18) , 0);
+
 	setup_display();
 #endif
 
@@ -549,7 +488,7 @@ int board_init(void)
 {
 	/* address of boot parameters */
 	gd->bd->bi_boot_params = PHYS_SDRAM + 0x100;
-	/* i2c1 : PMIC, Audio codec on RiOT, Expansion connector on MarS */
+	/* i2c1 : PMIC, Audio codec */
 	setup_i2c(0, CONFIG_SYS_I2C_SPEED, 0x7f, &i2c_pad_info1);
 	/* i2c2 : HDMI EDID */
 	setup_i2c(1, CONFIG_SYS_I2C_SPEED, 0x7f, &i2c_pad_info2);
@@ -562,15 +501,10 @@ int board_init(void)
 }
 
 #ifdef CONFIG_CMD_BMODE
-static const struct boot_mode riotboard_boot_modes[] = {
+static const struct boot_mode boot_modes[] = {
 	{"sd2",	 MAKE_CFGVAL(0x40, 0x28, 0x00, 0x00)},
 	{"sd3",	 MAKE_CFGVAL(0x40, 0x30, 0x00, 0x00)},
 	{"emmc", MAKE_CFGVAL(0x40, 0x38, 0x00, 0x00)},
-	{NULL,	 0},
-};
-static const struct boot_mode marsboard_boot_modes[] = {
-	{"sd2",	 MAKE_CFGVAL(0x40, 0x28, 0x00, 0x00)},
-	{"emmc", MAKE_CFGVAL(0x40, 0x30, 0x00, 0x00)},
 	{NULL,	 0},
 };
 #endif
@@ -578,10 +512,7 @@ static const struct boot_mode marsboard_boot_modes[] = {
 int board_late_init(void)
 {
 #ifdef CONFIG_CMD_BMODE
-	if (board_type == BOARD_IS_RIOTBOARD)
-		add_board_boot_modes(riotboard_boot_modes);
-	else if (board_type == BOARD_IS_RIOTBOARD)
-		add_board_boot_modes(marsboard_boot_modes);
+	add_board_boot_modes(boot_modes);
 #endif
 
 	return 0;
@@ -589,13 +520,6 @@ int board_late_init(void)
 
 int checkboard(void)
 {
-	puts("Board: ");
-	if (board_type == BOARD_IS_MARSBOARD)
-		puts("MarSBoard\n");
-	else if (board_type == BOARD_IS_RIOTBOARD)
-		puts("RIoTboard\n");
-	else
-		printf("unknown - cputype : %02x\n", cpu_type(get_cpu_rev()));
-
+	puts("Board: RIoTboard\n");
 	return 0;
 }
