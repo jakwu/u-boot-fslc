@@ -19,7 +19,9 @@
 
 #define CONFIG_CMD_SF
 
-#define CONFIG_ENV_IS_IN_SPI_FLASH
+#ifndef CONFIG_MFG
+	#define CONFIG_ENV_IS_IN_SPI_FLASH
+#endif
 
 #include "mx6embest_common.h"
 

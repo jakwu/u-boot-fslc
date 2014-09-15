@@ -123,135 +123,194 @@
 #define CONFIG_FTD_LOADADDR             0x18000000
 #define CONFIG_SYS_TEXT_BASE            0x17800000
 
-#define CONFIG_BOOTDELAY            3
 
-#ifdef CONFIG_SUPPORT_EMMC_BOOT
-	#define EMMC_ENV \
-		"emmcdev=2\0" \
-		"update_emmc_firmware=" \
+#ifdef CONFIG_MFG
+
+	#define CONFIG_BOOTDELAY            1
+
+	#if 0
+		#define CONFIG_BOOTCOMMAND \
+			"run mfgargs;" \
+				"bootm ${loadaddr} ${initrd_addr} ${fdt_addr};"
+	#else
+		#define CONFIG_BOOTCOMMAND \
+			"run mfgargs;" \
+				"bootm ${loadaddr} ${initrd_addr};"
+	#endif
+
+	#define CONFIG_EXTRA_ENV_SETTINGS \
+		"initrd_addr=" __stringify(CONFIG_RD_LOADADDR) "\0" \
+		"initrd_high=0xffffffff\0" \
+		"fdt_addr=" __stringify(CONFIG_FTD_LOADADDR) "\0" \
+		"fdt_high=0xffffffff\0" \
+		"console=" CONFIG_CONSOLE_DEV "\0" \
+		"mfgargs=setenv bootargs console=${console},${baudrate}" \
+			"rdinit=/linuxrc enable_wait_mode=off" \
+			"\0"
+
+#else /*CONFIG_MFG*/
+
+	#define CONFIG_BOOTDELAY            3
+
+	#ifdef CONFIG_SUPPORT_EMMC_BOOT
+		#define EMMC_ENV \
+			"emmcdev=2\0" \
+			"update_emmc_firmware=" \
+				"if test ${ip_dyn} = yes; then " \
+					"setenv get_cmd dhcp; " \
+				"else " \
+					"setenv get_cmd tftp; " \
+				"fi; " \
+				"if ${get_cmd} ${update_sd_firmware_filename}; then " \
+					"if mmc dev ${emmcdev}; then "	\
+						"setexpr fw_sz ${filesize} / 0x200; " \
+						"setexpr fw_sz ${fw_sz} + 1; "	\
+						"mmc write ${loadaddr} 0x2 ${fw_sz}; " \
+					"fi; "	\
+				"fi\0"
+	#else
+		#define EMMC_ENV ""
+	#endif
+
+	#ifdef CONFIG_CMD_SF
+		#define SF_ENV \
+			"update_spi_firmware=" \
+				"if test ${ip_dyn} = yes; then " \
+					"setenv get_cmd dhcp; " \
+				"else " \
+					"setenv get_cmd tftp; " \
+				"fi; " \
+				"if ${get_cmd} ${update_spi_firmware_filename}; then " \
+					"if sf probe; then "	\
+						"sf erase 0 0xc0000; " \
+						"sf write ${loadaddr} 0x400 ${filesize}; " \
+					"fi; "	\
+				"fi\0"
+	#else
+		#define SF_ENV ""
+	#endif
+
+	#define CONFIG_EXTRA_ENV_SETTINGS \
+		"script=boot.scr\0" \
+		"image=uImage\0" \
+		"fdt_file=" CONFIG_DEFAULT_FDT_FILE "\0" \
+		"fdt_addr=" __stringify(CONFIG_FTD_LOADADDR) "\0" \
+		"boot_fdt=try\0" \
+		"ip_dyn=yes\0" \
+		"console=" CONFIG_CONSOLE_DEV "\0" \
+		"fdt_high=0xffffffff\0"	  \
+		"initrd_high=0xffffffff\0" \
+		"mmcdev=" __stringify(CONFIG_SYS_MMC_ENV_DEV) "\0" \
+		"mmcpart=1\0" \
+		"mmcroot=" CONFIG_MMCROOT " rootwait rw\0" \
+		"update_sd_firmware=" \
 			"if test ${ip_dyn} = yes; then " \
 				"setenv get_cmd dhcp; " \
 			"else " \
 				"setenv get_cmd tftp; " \
 			"fi; " \
-			"if ${get_cmd} ${update_sd_firmware_filename}; then " \
-				"if mmc dev ${emmcdev}; then "	\
+			"if mmc dev ${mmcdev}; then "	\
+				"if ${get_cmd} ${update_sd_firmware_filename}; then " \
 					"setexpr fw_sz ${filesize} / 0x200; " \
 					"setexpr fw_sz ${fw_sz} + 1; "	\
 					"mmc write ${loadaddr} 0x2 ${fw_sz}; " \
 				"fi; "	\
-			"fi\0"
-#else
-	#define EMMC_ENV ""
-#endif
-
-#ifdef CONFIG_CMD_SF
-	#define SF_ENV \
-		"update_spi_firmware=" \
+			"fi\0" \
+		EMMC_ENV	  \
+		SF_ENV	  \
+		"mmcargs=setenv bootargs console=${console},${baudrate} ${dspargs} " \
+			"root=${mmcroot}\0" \
+		"loadbootscript=" \
+			"ext2load mmc ${mmcdev}:${mmcpart} ${loadaddr} ${script};\0" \
+		"bootscript=echo Running bootscript from mmc ...; " \
+			"source\0" \
+		"loadimage=mmc read ${loadaddr} 0x800 0x3000\0" \
+		"loadfdt=ext2load mmc ${mmcdev}:${mmcpart} ${fdt_addr} ${fdt_file}\0" \
+		"mmcboot=echo Booting from mmc ...; " \
+			"run mmcargs; " \
+			"echo command line \"${bootargs}\"; " \
+			"if test ${boot_fdt} = yes || test ${boot_fdt} = try; then " \
+				"if run loadfdt; then " \
+					"bootm ${loadaddr} - ${fdt_addr}; " \
+				"else " \
+					"if test ${boot_fdt} = try; then " \
+						"bootm; " \
+					"else " \
+						"echo WARN: Cannot load the DT; " \
+					"fi; " \
+				"fi; " \
+			"else " \
+				"bootm; " \
+			"fi;\0" \
+		"netargs=setenv bootargs console=${console},${baudrate} $(dspargs) " \
+			"root=/dev/nfs " \
+			"ip=dhcp nfsroot=${serverip}:${nfsroot},v3,tcp\0" \
+		"netboot=echo Booting from net ...; " \
+			"run netargs; " \
 			"if test ${ip_dyn} = yes; then " \
 				"setenv get_cmd dhcp; " \
 			"else " \
 				"setenv get_cmd tftp; " \
 			"fi; " \
-			"if ${get_cmd} ${update_spi_firmware_filename}; then " \
-				"if sf probe; then "	\
-					"sf erase 0 0xc0000; " \
-					"sf write ${loadaddr} 0x400 ${filesize}; " \
-				"fi; "	\
-			"fi\0"
-#else
-	#define SF_ENV ""
-#endif
-
-#define CONFIG_EXTRA_ENV_SETTINGS \
-	"script=boot.scr\0" \
-	"image=uImage\0" \
-	"fdt_file=" CONFIG_DEFAULT_FDT_FILE "\0" \
-	"fdt_addr=" __stringify(CONFIG_FTD_LOADADDR) "\0" \
-	"boot_fdt=try\0" \
-	"ip_dyn=yes\0" \
-	"console=" CONFIG_CONSOLE_DEV "\0" \
-	"fdt_high=0xffffffff\0"	  \
-	"initrd_high=0xffffffff\0" \
-	"mmcdev=" __stringify(CONFIG_SYS_MMC_ENV_DEV) "\0" \
-	"mmcpart=1\0" \
-	"mmcroot=" CONFIG_MMCROOT " rootwait rw\0" \
-	"update_sd_firmware=" \
-		"if test ${ip_dyn} = yes; then " \
-			"setenv get_cmd dhcp; " \
-		"else " \
-			"setenv get_cmd tftp; " \
-		"fi; " \
-		"if mmc dev ${mmcdev}; then "	\
-			"if ${get_cmd} ${update_sd_firmware_filename}; then " \
-				"setexpr fw_sz ${filesize} / 0x200; " \
-				"setexpr fw_sz ${fw_sz} + 1; "	\
-				"mmc write ${loadaddr} 0x2 ${fw_sz}; " \
-			"fi; "	\
-		"fi\0" \
-	EMMC_ENV	  \
-	SF_ENV	  \
-	"mmcargs=setenv bootargs console=${console},${baudrate} ${dspargs} " \
-		"root=${mmcroot}\0" \
-	"loadbootscript=" \
-		"ext2load mmc ${mmcdev}:${mmcpart} ${loadaddr} ${script};\0" \
-	"bootscript=echo Running bootscript from mmc ...; " \
-		"source\0" \
-	"loadimage=mmc read ${loadaddr} 0x800 0x3000\0" \
-	"loadfdt=ext2load mmc ${mmcdev}:${mmcpart} ${fdt_addr} ${fdt_file}\0" \
-	"mmcboot=echo Booting from mmc ...; " \
-		"run mmcargs; " \
-		"echo command line \"${bootargs}\"; " \
-		"if test ${boot_fdt} = yes || test ${boot_fdt} = try; then " \
-			"if run loadfdt; then " \
-				"bootm ${loadaddr} - ${fdt_addr}; " \
-			"else " \
-				"if test ${boot_fdt} = try; then " \
-					"bootm; " \
+			"${get_cmd} ${image}; " \
+			"if test ${boot_fdt} = yes || test ${boot_fdt} = try; then " \
+				"if ${get_cmd} ${fdt_addr} ${fdt_file}; then " \
+					"bootm ${loadaddr} - ${fdt_addr}; " \
 				"else " \
-					"echo WARN: Cannot load the DT; " \
+					"if test ${boot_fdt} = try; then " \
+						"bootm; " \
+					"else " \
+						"echo WARN: Cannot load the DT; " \
+					"fi; " \
+				"fi; " \
+			"else " \
+				"bootz; " \
+			"fi;\0" \
+		"detectdsp=" \
+			"echo \"Detecting display ...\"; " \
+			"setenv dspargs; " \
+			"setenv nextcon 0; " \
+			"if hdmidet ; then "  \
+				"setenv dspargs $dspargs \"video=mxcfb${nextcon}:dev=hdmi,1280x720M@60,if=RGB24 \"; " \
+				"setenv fbmem \"fbmem=28M\"; " \
+				"setexpr nextcon $nextcon + 1; " \
+			"else " \
+				"echo \"------ no HDMI monitor\"; " \
+			"fi; " \
+			"i2c dev 2; " \
+			"if i2c probe 0x01 ; then " \
+				"setenv dspargs $dspargs \"video=mxcfb${nextcon}:dev=ldb,LDB-XGA,if=RGB666 \"; " \
+				"if test \"0\" -eq $nextcon; then " \
+					"setenv fbmem \"fbmem=10M\"; " \
+				"else " \
+					"setenv fbmem ${fbmem},10M; " \
+				"fi; " \
+				"setexpr nextcon $nextcon + 1; " \
+			"else " \
+				"echo \"------ no LCD8000-97C\"; " \
+			"fi; " \
+			"while test \"4\" -ne $nextcon ; do " \
+				"setenv dspargs $dspargs \"video=mxcfb${nextcon}:off \"; " \
+				"setexpr nextcon $nextcon + 1; " \
+			"done;" \
+			"setenv dspargs $dspargs \"vmalloc=400M \" \0"
+
+	#define CONFIG_BOOTCOMMAND \
+		"mmc dev ${mmcdev}; " \
+		"if mmc rescan; then " \
+			"if run loadbootscript; then " \
+				"run bootscript; " \
+			"else " \
+				"run detectdsp;" \
+				"if run loadimage; then " \
+					"run mmcboot; " \
+				"else run netboot; " \
 				"fi; " \
 			"fi; " \
-		"else " \
-			"bootm; " \
-		"fi;\0" \
-	"netargs=setenv bootargs console=${console},${baudrate} $(dspargs) " \
-		"root=/dev/nfs " \
-		"ip=dhcp nfsroot=${serverip}:${nfsroot},v3,tcp\0" \
-	"netboot=echo Booting from net ...; " \
-		"run netargs; " \
-		"if test ${ip_dyn} = yes; then " \
-			"setenv get_cmd dhcp; " \
-		"else " \
-			"setenv get_cmd tftp; " \
-		"fi; " \
-		"${get_cmd} ${image}; " \
-		"if test ${boot_fdt} = yes || test ${boot_fdt} = try; then " \
-			"if ${get_cmd} ${fdt_addr} ${fdt_file}; then " \
-				"bootm ${loadaddr} - ${fdt_addr}; " \
-			"else " \
-				"if test ${boot_fdt} = try; then " \
-					"bootm; " \
-				"else " \
-					"echo WARN: Cannot load the DT; " \
-				"fi; " \
-			"fi; " \
-		"else " \
-			"bootz; " \
-		"fi;\0" \
+		"else run netboot; fi"
 
-#define CONFIG_BOOTCOMMAND \
-	"mmc dev ${mmcdev}; " \
-	"if mmc rescan; then " \
-		"if run loadbootscript; then " \
-			"run bootscript; " \
-		"else " \
-			"if run loadimage; then " \
-				"run mmcboot; " \
-			"else run netboot; " \
-			"fi; " \
-		"fi; " \
-	"else run netboot; fi"
+#endif /*CONFIG_MFG*/
+
 
 #define CONFIG_ARP_TIMEOUT     200UL
 

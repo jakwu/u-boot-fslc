@@ -18,7 +18,10 @@
 #define CONFIG_SYS_FSL_USDHC_NUM    3
 #define CONFIG_SYS_MMC_ENV_DEV      2  /* SDHC4 */
 
-#define CONFIG_ENV_IS_IN_MMC
+#ifndef CONFIG_MFG
+	#define CONFIG_ENV_IS_IN_MMC
+#endif
+
 
 #include "mx6embest_common.h"
 
