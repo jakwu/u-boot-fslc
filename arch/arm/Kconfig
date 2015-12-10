@@ -514,6 +514,10 @@ config TARGET_MX6QARM2
 	bool "Support mx6qarm2"
 	select CPU_V7
 
+config TARGET_MX6Q_NANORISC
+	bool "Support nanoRISC"
+	select CPU_V7
+
 config TARGET_MX6QSABREAUTO
 	bool "Support mx6qsabreauto"
 	select CPU_V7
@@ -902,6 +906,7 @@ source "board/work-microwave/work_92105/Kconfig"
 source "board/xaeniax/Kconfig"
 source "board/xilinx/zynqmp/Kconfig"
 source "board/zipitz2/Kconfig"
+source "board/msc/mx6x_nanoRISC/Kconfig"
 
 source "arch/arm/Kconfig.debug"
 

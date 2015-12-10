@@ -1,0 +1,47 @@
+if TARGET_MX6Q_NANORISC
+
+config SYS_BOARD
+	default "mx6x_nanoRISC"
+
+config SYS_VENDOR
+	default "msc"
+
+config SYS_SOC
+	default "mx6"
+
+config SYS_CONFIG_NAME
+	default "mx6q_nanoRISC"
+
+endif
+
+if TARGET_MX6DL_NANORISC
+
+config SYS_BOARD
+	default "mx6x_nanoRISC"
+
+config SYS_VENDOR
+	default "msc"
+
+config SYS_SOC
+	default "mx6"
+
+config SYS_CONFIG_NAME
+	default "mx6dl_nanoRISC"
+
+endif
+
+if TARGET_MX6S_NANORISC
+
+config SYS_BOARD
+	default "mx6x_nanoRISC"
+
+config SYS_VENDOR
+	default "msc"
+
+config SYS_SOC
+	default "mx6"
+
+config SYS_CONFIG_NAME
+	default "mx6s_nanoRISC"
+
+endif
